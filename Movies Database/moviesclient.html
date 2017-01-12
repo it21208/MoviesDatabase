@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>MOVIES DATABASE</title>
+		<img src="interior.jpg" alt="movie theatre" width="400" height="80">
+		<style>
+			body {
+				background-color: Gold;
+			}
+
+			h1 {
+				text-shadow: 5px 5px 5px #FF0000;
+			}
+
+			div {
+				background-repeat: no-repeat;
+			}
+	
+			table {
+				border-collapse: collapse;	
+				background-color: Cornsilk;
+			}
+
+			table,th,td {
+				border:1px solid black;
+				font-family: "Times New Roman", Times, serif;
+			}
+
+			th {
+				background-color: GoldenRod;
+				color: DarkSlateBlue;
+			}
+			
+			#tdID {
+				color: DarkSlateBlue; 
+			}
+			
+			#divMovieHint {
+				border: "1px solid #A5ACB2";
+			}
+			
+			#txtTitle {
+				min-width: 40%;
+			}
+		</style>
+		<script>
+			// global variable that holds the id of the movie retrieved from DB to be modified
+			var movieID = -1; // -1 means that no movie was found, therefore the Modify button shouldn't work!
+			
+			function loadGenresFromDB() {
+				// initialize movie genres
+				// code for IE7+, Firefox, Chrome, Opera, Safari
+				xmlhttp=new XMLHttpRequest();
+				xmlhttp.onreadystatechange=function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						//document.getElementById("divTest").innerHTML=xmlhttp.responseText;
+						var arrGenresList = xmlhttp.responseText.split('\t');
+						var cmbGenre = document.getElementById("cmbGenre");
+						for(var i = 0; i < arrGenresList.length; i++) {							
+							cmbGenre.options[cmbGenre.options.length] = new Option(arrGenresList[i], arrGenresList[i],false,(arrGenresList[i] == ""));
+						}
+
+					}
+				}
+				xmlhttp.open("GET","genrelist.php",true);
+				xmlhttp.send();
+			}
+			
+			function showMovies() {
+				// code for IE7+, Firefox, Chrome, Opera, Safari
+				xmlhttp=new XMLHttpRequest();
+				xmlhttp.onreadystatechange=function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						document.getElementById("divMovieList").innerHTML=xmlhttp.responseText;
+					}
+				}
+				xmlhttp.open("GET","movieslist.php",true);
+				xmlhttp.send();
+			}
+
+			function addMovie() {
+				// create HTML elements for New Movie
+				document.getElementById("divReplacableHTML").innerHTML=
+				"<b>Title:</b><input type=\"text\" id=\"txtTitle\">" +
+				"<b>Genre:</b><select id=\"cmbGenre\"></select>" +
+				"<input id=\"btnSubmit\" type=\"button\" value=\"Add\" onclick=\"insertMovieToDB()\">"				
+				// load genres from MySQL DB to the cmbGenre select control
+				loadGenresFromDB();
+			}
+
+			function insertMovieToDB() {
+				var response;
+				// read movie title
+				var title = document.getElementById("txtTitle").value;
+				// read genre
+				var genre = document.getElementById("cmbGenre").value;
+				// validate user input
+				if ((title.length == 0) || (genre.length == 0)) {
+					window.alert("Missing data!");
+					return;
+				}
+				// create AJAX request
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						response = xmlhttp.responseText;
+						if (response == "1") {
+							window.alert("Successfully inserted movie!");
+						} else {
+							window.alert(response);
+						}
+					}
+				}
+				xmlhttp.open("GET","addmovie.php?t="+title+"&g="+genre,true);
+				xmlhttp.send();
+			}	
+
+			function modifyMovie() {
+				// create HTML elements for Modify Movie
+				document.getElementById("divReplacableHTML").innerHTML=
+				"<b>Search movie:</b><input type=\"text\" id=\"txtSearchMovie\" onkeyup=\"showMovieHint(this.value)\">" +
+				"<br><b>Title:</b><input type=\"text\" id=\"txtTitle\">" +
+				"<b>Genre:</b><select id=\"cmbGenre\"></select>" +
+				"<input id=\"btnSubmit\" type=\"button\" value=\"Modify\" onclick=\"sendModifyMovie()\">";
+				// load genres from MySQL DB to the cmbGenre select control
+				loadGenresFromDB();
+			}
+
+			/* search the moviesphp.movie table for all movies that 
+			   match str+'%' */
+			function showMovieHint(str) {
+				/* if there is no text in txtSearchMovie
+				   clear txtTitle and cmbGenre and return */
+				if (str.length == 0) {
+					document.getElementById("txtTitle").value="";
+					document.getElementById("cmbGenre").value="";
+					return;
+				}
+				// proceed with  AJAX request
+				xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						  // get response
+						  response = xmlhttp.responseText;
+						  document.getElementById("txtTitle").value = response;
+						  // split response to array using ',' as delimiter
+						  arrTitles = response.split(", ");
+						  /* if the response contains 1 movie, this means that
+						   * the movie was uniquely identified  */
+						  if (arrTitles.length == 1) {
+							// retrieve movie record in XML form
+							getMovieXMLRecordFromDB(arrTitles[0]);
+						  }
+					}
+			  }
+			  xmlhttp.open("GET","moviehintsearch.php?t="+str,true);
+			  xmlhttp.send();
+			}
+
+			
+			function getMovieXMLRecordFromDB(movieTitle) {
+				xmlhttp=new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						// get XML response
+						xmlDoc = xmlhttp.responseXML;
+						// read XML fields and assign to txtTitle and cbmGenre
+						var movies = xmlDoc.getElementsByTagName("movie");
+						document.getElementById("txtTitle").value = movies[0].getElementsByTagName("title")[0].childNodes[0].nodeValue;
+						document.getElementById("cmbGenre").value = movies[0].getElementsByTagName("genre")[0].childNodes[0].nodeValue;
+						// read XML field "id" (primary key value of the movie to modify) and assign it to global variable movieID
+						movieID = movies[0].getElementsByTagName("id")[0].childNodes[0].nodeValue; 
+					}
+				}
+			  xmlhttp.open("GET","getmovie.php?t="+movieTitle,true);
+			  xmlhttp.send(null);
+			}
+
+			/* updates the movie with id=<movieID> variable and title, genre read from the html elements */
+			function sendModifyMovie() {
+				var response;
+				// if there is no movieID, do nothing
+				if (movieID == -1) {
+					alert("No movie record has been retrieved to be modified!");
+					return;
+				}
+				// read movie title
+				var title = document.getElementById("txtTitle").value;
+				// read genre
+				var genre = document.getElementById("cmbGenre").value;
+				// validate user input
+				if ((title.length == 0) || (genre.length == 0)) {
+					window.alert("Missing data!");
+					return;
+				}
+				// create AJAX request
+				var xmlhttp = new XMLHttpRequest();
+				xmlhttp.onreadystatechange = function() {
+					if (xmlhttp.readyState==4 && xmlhttp.status==200) {
+						response = xmlhttp.responseText;
+						if (response == "1") {
+							window.alert("Successfully updated movie!");
+							// clear all visual elements
+							document.getElementById("txtSearchMovie").value="";
+							document.getElementById("txtTitle").value="";
+							document.getElementById("cmbGenre").value="";
+						} else {
+							window.alert(response);
+						}
+						// set this global variable to "no movie record has been retrieved"
+						movieID = -1; 
+					}
+				}
+				xmlhttp.open("GET","updatemovie.php?id="+movieID+"&t="+title+"&g="+genre,true);
+				xmlhttp.send();
+			}
+
+		</script>
+	</head>
+	<body>
+		<h1><b>MOVIES DATABASE</b></h1>
+		<hr/>
+		<form name="frmMovieAddModify">
+			<div id="divReplacableHTML"></div>
+		</form>
+		<br>
+		<form name="frmMenuButtons">
+			<hr/>
+			<input id="btnLoadMovieList" type="button" value="Show Movies" onclick="showMovies()">
+			<input id="btnAddMovie" type="button" value="Add Movie" onclick="addMovie()">
+			<input id="btnModifyMovie" type="button" value="Modify Movie" onclick="modifyMovie()">
+			<hr/>
+		</form>
+		<!-- a placeholder for the Movie list -->
+		<div id="divMovieList"></div>
+		<hr/>
+	</body>
+</html>
